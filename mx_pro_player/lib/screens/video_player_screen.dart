@@ -1,11 +1,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:provider/provider.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 import 'package:volume_controller/volume_controller.dart';
-import 'package:auto_orientation/auto_orientation.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../models/video_model.dart';
 import '../providers/video_provider.dart';
@@ -30,12 +30,19 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   void initState() {
     super.initState();
     _initializePlayer();
+
     WakelockPlus.enable();
-    AutoOrientation.landscapeRightMode();
+
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
   }
 
   Future<void> _initializePlayer() async {
-    _videoPlayerController = VideoPlayerController.file(File(widget.video.path));
+    _videoPlayerController =
+        VideoPlayerController.file(File(widget.video.path));
+
     await _videoPlayerController.initialize();
 
     _chewieController = ChewieController(
@@ -47,8 +54,19 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       showControls: true,
       allowFullScreen: true,
       fullScreenByDefault: true,
-      deviceOrientationsAfterFullScreen: [DeviceOrientation.portraitUp],
-      playbackSpeeds: [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 3.0, 4.0],
+      deviceOrientationsAfterFullScreen: [
+        DeviceOrientation.portraitUp
+      ],
+      playbackSpeeds: const [
+        0.25,
+        0.5,
+        0.75,
+        1.0,
+        1.25,
+        1.5,
+        1.75,
+        2.0,
+      ],
       materialProgressColors: ChewieProgressColors(
         playedColor: Colors.blue,
         handleColor: Colors.blueAccent,
@@ -59,7 +77,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
     _videoPlayerController.addListener(() {
       if (_videoPlayerController.value.position != Duration.zero) {
-        context.read<VideoProvider>().updateLastPosition(widget.video, _videoPlayerController.value.position);
+        context.read<VideoProvider>().updateLastPosition(
+              widget.video,
+              _videoPlayerController.value.position,
+            );
       }
     });
 
@@ -70,8 +91,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   void dispose() {
     _videoPlayerController.dispose();
     _chewieController?.dispose();
+
     WakelockPlus.disable();
-    AutoOrientation.portraitUpMode();
+
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+    ]);
+
     super.dispose();
   }
 
@@ -82,11 +108,15 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       body: Stack(
         children: [
           Center(
-            child: _chewieController != null && _chewieController!.videoPlayerController.value.isInitialized
+            child: _chewieController != null &&
+                    _chewieController!
+                        .videoPlayerController.value.isInitialized
                 ? GestureDetector(
-                    onVerticalDragUpdate: (details) => _handleVerticalDrag(details),
-                    onDoubleTapDown: (details) => _handleDoubleTap(details),
-                    child: Chewie(controller: _chewieController!),
+                    onVerticalDragUpdate: _handleVerticalDrag,
+                    onDoubleTapDown: _handleDoubleTap,
+                    child: Chewie(
+                      controller: _chewieController!,
+                    ),
                   )
                 : const CircularProgressIndicator(),
           ),
@@ -97,7 +127,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                 child: Container(
                   color: Colors.transparent,
                   child: const Center(
-                    child: Icon(Icons.lock, color: Colors.white, size: 50),
+                    child: Icon(
+                      Icons.lock,
+                      color: Colors.white,
+                      size: 50,
+                    ),
                   ),
                 ),
               ),
@@ -106,7 +140,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             top: 40,
             left: 20,
             child: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              icon: const Icon(
+                Icons.arrow_back,
+                color: Colors.white,
+              ),
               onPressed: () => Navigator.pop(context),
             ),
           ),
@@ -114,8 +151,15 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             top: 40,
             right: 20,
             child: IconButton(
-              icon: Icon(_isLocked ? Icons.lock : Icons.lock_open, color: Colors.white),
-              onPressed: () => setState(() => _isLocked = !_isLocked),
+              icon: Icon(
+                _isLocked ? Icons.lock : Icons.lock_open,
+                color: Colors.white,
+              ),
+              onPressed: () {
+                setState(() {
+                  _isLocked = !_isLocked;
+                });
+              },
             ),
           ),
         ],
@@ -125,30 +169,38 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   void _handleVerticalDrag(DragUpdateDetails details) async {
     if (_isLocked) return;
-    
-    double delta = details.primaryDelta! / MediaQuery.of(context).size.height;
-    if (details.localPosition.dx < MediaQuery.of(context).size.width / 2) {
-      // التحكم بالسطوع
+
+    double delta =
+        details.primaryDelta! / MediaQuery.of(context).size.height;
+
+    if (details.localPosition.dx <
+        MediaQuery.of(context).size.width / 2) {
       _brightness = (_brightness - delta).clamp(0.0, 1.0);
       await ScreenBrightness().setScreenBrightness(_brightness);
     } else {
-      // التحكم بالصوت
       _volume = (_volume - delta).clamp(0.0, 1.0);
-      VolumeController().setVolume(_volume);
+      await VolumeController().setVolume(_volume);
     }
   }
 
   void _handleDoubleTap(TapDownDetails details) {
     if (_isLocked) return;
-    
+
     final width = MediaQuery.of(context).size.width;
+
     if (details.localPosition.dx < width / 2) {
-      // ترجيع 10 ثواني
-      final newPos = _videoPlayerController.value.position - const Duration(seconds: 10);
-      _videoPlayerController.seekTo(newPos < Duration.zero ? Duration.zero : newPos);
+      final newPos =
+          _videoPlayerController.value.position -
+              const Duration(seconds: 10);
+
+      _videoPlayerController.seekTo(
+        newPos < Duration.zero ? Duration.zero : newPos,
+      );
     } else {
-      // تقديم 10 ثواني
-      final newPos = _videoPlayerController.value.position + const Duration(seconds: 10);
+      final newPos =
+          _videoPlayerController.value.position +
+              const Duration(seconds: 10);
+
       _videoPlayerController.seekTo(newPos);
     }
   }
