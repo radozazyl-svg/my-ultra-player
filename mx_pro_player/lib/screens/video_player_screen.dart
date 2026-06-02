@@ -13,22 +13,31 @@ import '../providers/video_provider.dart';
 class VideoPlayerScreen extends StatefulWidget {
   final VideoModel video;
 
-  const VideoPlayerScreen({super.key, required this.video});
+  const VideoPlayerScreen({
+    super.key,
+    required this.video,
+  });
 
   @override
-  State<VideoPlayerScreen> createState() => _VideoPlayerScreenState();
+  State<VideoPlayerScreen> createState() =>
+      _VideoPlayerScreenState();
 }
 
-class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
+class _VideoPlayerScreenState
+    extends State<VideoPlayerScreen> {
   late VideoPlayerController _videoPlayerController;
+
   ChewieController? _chewieController;
+
   bool _isLocked = false;
+
   double _brightness = 0.5;
   double _volume = 0.5;
 
   @override
   void initState() {
     super.initState();
+
     _initializePlayer();
 
     WakelockPlus.enable();
@@ -41,21 +50,27 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   Future<void> _initializePlayer() async {
     _videoPlayerController =
-        VideoPlayerController.file(File(widget.video.path));
+        VideoPlayerController.file(
+      File(widget.video.path),
+    );
 
     await _videoPlayerController.initialize();
 
     _chewieController = ChewieController(
-      videoPlayerController: _videoPlayerController,
+      videoPlayerController:
+          _videoPlayerController,
       autoPlay: true,
       looping: false,
       startAt: widget.video.lastPosition,
-      aspectRatio: _videoPlayerController.value.aspectRatio,
+      aspectRatio:
+          _videoPlayerController
+              .value
+              .aspectRatio,
       showControls: true,
       allowFullScreen: true,
       fullScreenByDefault: true,
       deviceOrientationsAfterFullScreen: [
-        DeviceOrientation.portraitUp
+        DeviceOrientation.portraitUp,
       ],
       playbackSpeeds: const [
         0.25,
@@ -67,19 +82,29 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         1.75,
         2.0,
       ],
-      materialProgressColors: ChewieProgressColors(
+      materialProgressColors:
+          ChewieProgressColors(
         playedColor: Colors.blue,
-        handleColor: Colors.blueAccent,
-        backgroundColor: Colors.grey,
-        bufferedColor: Colors.white,
+        handleColor:
+            Colors.blueAccent,
+        backgroundColor:
+            Colors.grey,
+        bufferedColor:
+            Colors.white,
       ),
     );
 
-    _videoPlayerController.addListener(() {
-      if (_videoPlayerController.value.position != Duration.zero) {
-        context.read<VideoProvider>().updateLastPosition(
+    _videoPlayerController
+        .addListener(() {
+      if (_videoPlayerController
+              .value.position !=
+          Duration.zero) {
+        context
+            .read<VideoProvider>()
+            .updateLastPosition(
               widget.video,
-              _videoPlayerController.value.position,
+              _videoPlayerController
+                  .value.position,
             );
       }
     });
@@ -90,11 +115,13 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   @override
   void dispose() {
     _videoPlayerController.dispose();
+
     _chewieController?.dispose();
 
     WakelockPlus.disable();
 
-    SystemChrome.setPreferredOrientations([
+    SystemChrome
+        .setPreferredOrientations([
       DeviceOrientation.portraitUp,
     ]);
 
@@ -108,28 +135,42 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       body: Stack(
         children: [
           Center(
-            child: _chewieController != null &&
-                    _chewieController!
-                        .videoPlayerController.value.isInitialized
-                ? GestureDetector(
-                    onVerticalDragUpdate: _handleVerticalDrag,
-                    onDoubleTapDown: _handleDoubleTap,
-                    child: Chewie(
-                      controller: _chewieController!,
-                    ),
-                  )
-                : const CircularProgressIndicator(),
+            child:
+                _chewieController !=
+                            null &&
+                        _chewieController!
+                            .videoPlayerController
+                            .value
+                            .isInitialized
+                    ? GestureDetector(
+                        onVerticalDragUpdate:
+                            _handleVerticalDrag,
+                        onDoubleTapDown:
+                            _handleDoubleTap,
+                        child: Chewie(
+                          controller:
+                              _chewieController!,
+                        ),
+                      )
+                    : const CircularProgressIndicator(),
           ),
           if (_isLocked)
             Positioned.fill(
               child: GestureDetector(
-                onTap: () => setState(() => _isLocked = false),
+                onTap: () {
+                  setState(() {
+                    _isLocked = false;
+                  });
+                },
                 child: Container(
-                  color: Colors.transparent,
-                  child: const Center(
+                  color:
+                      Colors.transparent,
+                  child:
+                      const Center(
                     child: Icon(
                       Icons.lock,
-                      color: Colors.white,
+                      color:
+                          Colors.white,
                       size: 50,
                     ),
                   ),
@@ -142,9 +183,12 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             child: IconButton(
               icon: const Icon(
                 Icons.arrow_back,
-                color: Colors.white,
+                color:
+                    Colors.white,
               ),
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                Navigator.pop(context);
+              },
             ),
           ),
           Positioned(
@@ -152,12 +196,16 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
             right: 20,
             child: IconButton(
               icon: Icon(
-                _isLocked ? Icons.lock : Icons.lock_open,
-                color: Colors.white,
+                _isLocked
+                    ? Icons.lock
+                    : Icons.lock_open,
+                color:
+                    Colors.white,
               ),
               onPressed: () {
                 setState(() {
-                  _isLocked = !_isLocked;
+                  _isLocked =
+                      !_isLocked;
                 });
               },
             ),
@@ -167,41 +215,76 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     );
   }
 
-  void _handleVerticalDrag(DragUpdateDetails details) async {
+  void _handleVerticalDrag(
+    DragUpdateDetails details,
+  ) async {
     if (_isLocked) return;
 
     double delta =
-        details.primaryDelta! / MediaQuery.of(context).size.height;
+        details.primaryDelta! /
+            MediaQuery.of(context)
+                .size
+                .height;
 
     if (details.localPosition.dx <
-        MediaQuery.of(context).size.width / 2) {
-      _brightness = (_brightness - delta).clamp(0.0, 1.0);
-      await ScreenBrightness().setScreenBrightness(_brightness);
+        MediaQuery.of(context)
+                .size
+                .width /
+            2) {
+      _brightness =
+          (_brightness - delta)
+              .clamp(0.0, 1.0);
+
+      await ScreenBrightness()
+          .setScreenBrightness(
+              _brightness);
     } else {
-      _volume = (_volume - delta).clamp(0.0, 1.0);
-      await VolumeController().setVolume(_volume);
+      _volume =
+          (_volume - delta)
+              .clamp(0.0, 1.0);
+
+      VolumeController()
+          .setVolume(_volume);
     }
   }
 
-  void _handleDoubleTap(TapDownDetails details) {
+  void _handleDoubleTap(
+    TapDownDetails details,
+  ) {
     if (_isLocked) return;
 
-    final width = MediaQuery.of(context).size.width;
+    final width =
+        MediaQuery.of(context)
+            .size
+            .width;
 
-    if (details.localPosition.dx < width / 2) {
+    if (details.localPosition.dx <
+        width / 2) {
       final newPos =
-          _videoPlayerController.value.position -
-              const Duration(seconds: 10);
+          _videoPlayerController
+                  .value
+                  .position -
+              const Duration(
+                seconds: 10,
+              );
 
-      _videoPlayerController.seekTo(
-        newPos < Duration.zero ? Duration.zero : newPos,
+      _videoPlayerController
+          .seekTo(
+        newPos < Duration.zero
+            ? Duration.zero
+            : newPos,
       );
     } else {
       final newPos =
-          _videoPlayerController.value.position +
-              const Duration(seconds: 10);
+          _videoPlayerController
+                  .value
+                  .position +
+              const Duration(
+                seconds: 10,
+              );
 
-      _videoPlayerController.seekTo(newPos);
+      _videoPlayerController
+          .seekTo(newPos);
     }
   }
 }
